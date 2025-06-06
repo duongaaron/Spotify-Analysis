@@ -3,10 +3,10 @@ import axios from 'axios';
 
 const spotifyApi = new SpotifyWebApi();
 
-// Spotify authentication parameters - hardcoded for reliability
-const CLIENT_ID = '6ced8ce22bb248bf8a2c852d01cce454';
-const CLIENT_SECRET = '37a7301e731f4dfc8bb3448908090c20';
-const REDIRECT_URI = 'http://127.0.0.1:5173/callback';
+// Spotify authentication parameters from environment variables
+const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+const CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
+const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI;
 const SCOPES = ['user-top-read', 'user-library-read'];
 
 // Generate random string for state parameter
