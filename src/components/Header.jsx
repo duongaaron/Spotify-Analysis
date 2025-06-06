@@ -1,10 +1,9 @@
 import { Box, Heading, Flex, Button, Image } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
 
 function Header() {
-  const { token, logout } = useAuth();
   const navigate = useNavigate();
+  const isAnalysisPage = window.location.pathname === '/analysis';
 
   return (
     <Flex as="header" width="full" align="center" justifyContent="space-between" py={4} mb={8}>
@@ -13,13 +12,13 @@ function Header() {
         <Heading size="md" color="spotify.black">Spotify Personality Analyzer</Heading>
       </Flex>
       
-      {token && (
+      {isAnalysisPage && (
         <Button 
           size="sm" 
-          onClick={logout}
+          onClick={() => navigate('/')}
           colorScheme="gray"
         >
-          Logout
+          Back
         </Button>
       )}
     </Flex>

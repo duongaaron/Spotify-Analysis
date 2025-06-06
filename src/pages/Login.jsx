@@ -1,22 +1,20 @@
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, VStack, Heading, Text, Image } from '@chakra-ui/react';
+import { Box, Button, VStack, Heading, Text, Image, HStack, Divider } from '@chakra-ui/react';
 import { getLoginUrl } from '../utils/spotify';
-import useAuth from '../hooks/useAuth';
 import Header from '../components/Header';
 
 function Login() {
-  const { token, loading } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (token && !loading) {
-      navigate('/analysis');
-    }
-  }, [token, loading, navigate]);
-
-  const handleLogin = () => {
+  const handleSpotifyLogin = () => {
+    // Redirect to Spotify authorization
     window.location.href = getLoginUrl();
+  };
+
+  const handleDemoLogin = () => {
+    // Use mock data instead
+    localStorage.setItem('using_mock_data', 'true');
+    navigate('/analysis');
   };
 
   return (
@@ -28,21 +26,38 @@ function Login() {
         <VStack spacing={3}>
           <Heading>Discover Your Music Personality</Heading>
           <Text color="gray.600" maxW="md">
-            Connect your Spotify account to get a fun AI-generated personality analysis based on your music taste.
+            Get a fun AI-generated personality analysis based on your music taste.
           </Text>
         </VStack>
         
-        <Button
-          onClick={handleLogin}
-          bg="spotify.green"
-          color="white"
-          size="lg"
-          _hover={{ bg: 'green.600' }}
-          px={8}
-          isLoading={loading}
-        >
-          Connect with Spotify
-        </Button>
+        <VStack spacing={6} width="100%" maxW="md">
+          <Button
+            onClick={handleSpotifyLogin}
+            bg="spotify.green"
+            color="white"
+            size="lg"
+            width="100%"
+            _hover={{ bg: 'green.600' }}
+          >
+            Connect with Spotify
+          </Button>
+          
+          <HStack width="100%">
+            <Divider />
+            <Text fontSize="sm" color="gray.500" whiteSpace="nowrap">or</Text>
+            <Divider />
+          </HStack>
+          
+          <Button
+            onClick={handleDemoLogin}
+            variant="outline"
+            colorScheme="gray"
+            size="lg"
+            width="100%"
+          >
+            Try Demo Version
+          </Button>
+        </VStack>
         
         <Text fontSize="sm" color="gray.500">
           We only access your top tracks to create your personality analysis.

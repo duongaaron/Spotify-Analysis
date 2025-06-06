@@ -3,8 +3,8 @@ import SpotifyWebApi from 'spotify-web-api-js';
 const spotifyApi = new SpotifyWebApi();
 
 // Spotify authentication parameters
-const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI;
+const CLIENT_ID = '6ced8ce22bb248bf8a2c852d01cce454'; // Hardcoded client ID
+const REDIRECT_URI = 'http://127.0.0.1:5173/callback';
 const SCOPES = ['user-top-read', 'user-library-read'];
 
 // Generate random string for state parameter
@@ -22,32 +22,45 @@ export const getLoginUrl = () => {
   const state = generateRandomString(16);
   localStorage.setItem('spotify_auth_state', state);
   
+  // Use PKCE for added security (Proof Key for Code Exchange)
+  const codeVerifier = generateRandomString(64);
+  localStorage.setItem('code_verifier', codeVerifier);
+  
+  console.log('Using CLIENT_ID:', CLIENT_ID);
+  console.log('Using redirect URI:', REDIRECT_URI);
+  
   const authUrl = 'https://accounts.spotify.com/authorize';
   const params = new URLSearchParams({
-    response_type: 'token',
     client_id: CLIENT_ID,
-    scope: SCOPES.join(' '),
+    response_type: 'code',
     redirect_uri: REDIRECT_URI,
-    state: state
+    state: state,
+    scope: SCOPES.join(' '),
+    show_dialog: true
   });
   
   return `${authUrl}?${params.toString()}`;
 };
 
-// Parse the access token from URL hash
-export const getTokenFromUrl = () => {
-  const hash = window.location.hash.substring(1);
-  const params = new URLSearchParams(hash);
+// Parse the code from URL query parameters
+export const getCodeFromUrl = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  const state = urlParams.get('state');
+  const error = urlParams.get('error');
   
-  const token = params.get('access_token');
-  const state = params.get('state');
+  // Log any errors
+  if (error) {
+    console.error('Authentication error:', error);
+    return null;
+  }
   
   // Verify state matches to prevent CSRF attacks
   const storedState = localStorage.getItem('spotify_auth_state');
   
-  if (token && state === storedState) {
+  if (code && state === storedState) {
     localStorage.removeItem('spotify_auth_state');
-    return token;
+    return code;
   }
   
   return null;
@@ -78,6 +91,11 @@ export const getUserProfile = async () => {
     console.error('Error fetching user profile:', error);
     throw error;
   }
+};
+
+// Fallback to mock data if authentication fails
+export const useMockData = () => {
+  localStorage.setItem('using_mock_data', 'true');
 };
 
 export default spotifyApi;
