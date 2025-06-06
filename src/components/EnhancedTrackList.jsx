@@ -1,69 +1,74 @@
-import { Box, VStack, HStack, Text, Image, Divider, Heading } from '@chakra-ui/react';
+import { Box, Heading, SimpleGrid, Image, Text, VStack } from '@chakra-ui/react';
 
 function EnhancedTrackList({ tracks }) {
   if (!tracks || tracks.length === 0) {
-    return <Text>No tracks found</Text>;
+    return (
+      <Box p={6} borderRadius="lg" boxShadow="md" bg="white" mb={8}>
+        <Heading size="md" mb={4}>Your Top Tracks</Heading>
+        <Text>No tracks found. Try refreshing or logging in again.</Text>
+      </Box>
+    );
   }
 
-  // Check if we're getting the simplified track format from the API response
-  const isSimplifiedFormat = tracks[0] && 'artist' in tracks[0];
-
   return (
-    <Box 
-      borderWidth="1px" 
-      borderRadius="lg" 
-      p={6} 
-      bg="white" 
-      shadow="md"
-      my={6}
-    >
-      <Heading size="md" mb={4}>Your Top Tracks</Heading>
-      <VStack spacing={2} align="stretch">
-        {isSimplifiedFormat ? (
-          // Render simplified track format from API
-          tracks.slice(0, 20).map((track, index) => (
-            <Box key={index}>
-              <HStack spacing={3} py={2}>
-                <Text color="gray.500" fontWeight="bold" minW="20px">{index + 1}</Text>
-                <Box>
-                  <Text fontWeight="semibold" noOfLines={1}>{track.name}</Text>
-                  <Text fontSize="sm" color="gray.600" noOfLines={1}>
-                    {track.artist} • {track.album}
-                  </Text>
-                </Box>
-                <Text ml="auto" fontSize="sm" color="gray.400">
-                  Popularity: {track.popularity}
-                </Text>
-              </HStack>
-              {index < Math.min(tracks.length - 1, 19) && <Divider />}
+    <Box p={6} borderRadius="lg" boxShadow="md" bg="white" mb={8}>
+      <Heading size="md" mb={6}>Your Top Tracks</Heading>
+      
+      <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
+        {tracks.map((track, index) => (
+          <VStack key={track.id || index} spacing={2} align="center">
+            <Box 
+              position="relative" 
+              width="100%" 
+              paddingBottom="100%" 
+              overflow="hidden" 
+              borderRadius="md"
+            >
+              <Image 
+                position="absolute"
+                top="0"
+                left="0"
+                width="100%"
+                height="100%"
+                src={track.album?.images?.[0]?.url || 'https://via.placeholder.com/300'}
+                alt={track.name}
+                objectFit="cover"
+              />
+              <Box 
+                position="absolute" 
+                top="0" 
+                left="0" 
+                bg="blackAlpha.600" 
+                color="white" 
+                px={2} 
+                py={1} 
+                fontSize="sm"
+                borderBottomRightRadius="md"
+              >
+                {index + 1}
+              </Box>
             </Box>
-          ))
-        ) : (
-          // Render full Spotify API track format
-          tracks.map((track, index) => (
-            <Box key={track.id || index}>
-              <HStack spacing={3} py={2}>
-                <Text color="gray.500" fontWeight="bold" minW="20px">{index + 1}</Text>
-                {track.album?.images?.[2] && (
-                  <Image 
-                    src={track.album.images[2].url} 
-                    alt={track.album.name}
-                    boxSize="40px"
-                    borderRadius="md"
-                  />
-                )}
-                <Box>
-                  <Text fontWeight="semibold" noOfLines={1}>{track.name}</Text>
-                  <Text fontSize="sm" color="gray.600" noOfLines={1}>
-                    {track.artists?.map(artist => artist.name).join(', ') || 'Unknown Artist'}
-                  </Text>
-                </Box>
-              </HStack>
-              {index < tracks.length - 1 && <Divider />}
-            </Box>
-          ))
-        )}
-      </VStack>
+            <Text 
+              fontWeight="bold" 
+              fontSize="sm" 
+              noOfLines={1} 
+              textAlign="center"
+              width="100%"
+            >
+              {track.name}
+            </Text>
+            <Text 
+              fontSize="xs" 
+              color="gray.600" 
+              noOfLines={1}
+              textAlign="center"
+              width="100%"
+            >
+              {track.artists?.map(artist => artist.name).join(', ')}
+            </Text>
+          </VStack>
+        ))}
+      </SimpleGrid>
     </Box>
   );
 }

@@ -79,10 +79,12 @@ Top Tracks:
 {track_list}
 
 Please provide:
-1. A personality profile (3-4 paragraphs)
-2. Key personality traits (5-7 bullet points)
-3. Music taste analysis
-4. A fun, creative title for their personality type"""
+1. Personality Profile (3-4 paragraphs)
+2. Key Personality Traits (5-7 bullet points)
+3. Music Taste Analysis
+4. Fun, Creative Title for their personality type
+
+Format your response as plain text with numbered sections. DO NOT use HTML formatting."""
     
     # Call Claude 3.7 Sonnet model with the correct format
     response = bedrock_runtime.invoke_model(

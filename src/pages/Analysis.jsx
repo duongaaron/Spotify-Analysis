@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Button, VStack, Spinner, Text, Alert, AlertIcon, AlertDescription } from '@chakra-ui/react';
 import Header from '../components/Header';
 import EnhancedPersonalityCard from '../components/EnhancedPersonalityCard';
-import EnhancedTrackList from '../components/EnhancedTrackList';
 import { getTopTracks, getUserProfile } from '../utils/spotify';
 import { formatTracksForPrompt, generatePersonalityAnalysis } from '../utils/analysis';
 
@@ -12,7 +11,7 @@ function Analysis() {
   
   const [tracks, setTracks] = useState([]);
   const [user, setUser] = useState(null);
-  const [analysisData, setAnalysisData] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState(null);
@@ -25,7 +24,7 @@ function Analysis() {
         // Get user profile and top tracks in parallel
         const [userProfile, userTracks] = await Promise.all([
           getUserProfile(),
-          getTopTracks(20)
+          getTopTracks(10)
         ]);
         
         // Set user and tracks
@@ -41,10 +40,8 @@ function Analysis() {
         }
         
         const tracksText = formatTracksForPrompt(userTracks);
-        const response = await generatePersonalityAnalysis(tracksText);
-        console.log('Analysis response:', response);
-        
-        setAnalysisData(response);
+        const personalityAnalysis = await generatePersonalityAnalysis(tracksText, userTracks);
+        setAnalysis(personalityAnalysis);
         setAnalyzing(false);
         
       } catch (error) {
@@ -101,14 +98,16 @@ function Analysis() {
       )}
       
       <EnhancedPersonalityCard 
-        analysisData={analysisData} 
+        analysisData={analysis} 
         loading={analyzing} 
         userName={user?.display_name}
       />
       
-      <EnhancedTrackList 
-        tracks={analysisData && analysisData.tracks ? analysisData.tracks : tracks} 
-      />
+      <Box textAlign="center" mt={8} mb={4}>
+        <Text fontSize="sm" color="gray.500">
+          Analysis based on your top {tracks.length} tracks
+        </Text>
+      </Box>
       
       <Box textAlign="center" mt={8}>
         <Button

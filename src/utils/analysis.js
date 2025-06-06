@@ -12,6 +12,13 @@ export const formatTracksForPrompt = (tracks) => {
 // Parse the analysis response from Claude
 export const parseAnalysisResponse = (responseText) => {
   try {
+    // Check if the response is HTML and extract text content if needed
+    if (responseText.includes('<html') || responseText.includes('<body') || responseText.includes('<div')) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = responseText;
+      responseText = tempDiv.textContent || tempDiv.innerText || responseText;
+    }
+    
     // Try to extract structured sections from the text
     const sections = {};
     
@@ -23,13 +30,13 @@ export const parseAnalysisResponse = (responseText) => {
     }
     
     // Extract personality profile (usually the first few paragraphs)
-    const profileMatch = responseText.match(/(?:personality profile:?\s*\n*)([\s\S]+?)(?:\n\s*\n|\d\.|\*|\-|#)/i);
+    const profileMatch = responseText.match(/(?:1\.?\s*Personality\s*Profile:?\s*\n*)([\s\S]+?)(?=2\.?\s*Key\s*Personality\s*Traits:?)/i);
     if (profileMatch) {
       sections.profile = profileMatch[1].trim();
     }
     
     // Extract key traits (usually bullet points)
-    const traitsMatch = responseText.match(/(?:key (?:personality )?traits:?\s*\n*)([\s\S]+?)(?:\n\s*\n|music taste|#)/i);
+    const traitsMatch = responseText.match(/(?:2\.?\s*Key\s*Personality\s*Traits:?\s*\n*)([\s\S]+?)(?=3\.?\s*Music\s*Taste\s*Analysis:?)/i);
     if (traitsMatch) {
       const traitsText = traitsMatch[1];
       sections.traits = traitsText
@@ -40,20 +47,30 @@ export const parseAnalysisResponse = (responseText) => {
     }
     
     // Extract music taste analysis
-    const musicMatch = responseText.match(/(?:music taste analysis:?\s*\n*)([\s\S]+?)(?:\n\s*\n|#|$)/i);
+    const musicMatch = responseText.match(/(?:3\.?\s*Music\s*Taste\s*Analysis:?\s*\n*)([\s\S]+?)(?=4\.?\s*Fun,\s*Creative\s*Title|$)/i);
     if (musicMatch) {
       sections.music_analysis = musicMatch[1].trim();
     }
     
+    // Extract creative title
+    const titleCreativeMatch = responseText.match(/(?:4\.?\s*Fun,\s*Creative\s*Title[^:]*:?\s*\n*)([\s\S]+?)(?=$)/i);
+    if (titleCreativeMatch) {
+      sections.creative_title = titleCreativeMatch[1].trim()
+        .replace(/^"(.+)"$/, '$1')
+        .replace(/^"(.+)"$/, '$1');
+    }
+    
     // If we couldn't extract structured sections, return the full text
     if (Object.keys(sections).length === 0) {
-      return responseText;
+      return {
+        personality_analysis: responseText
+      };
     }
     
     return sections;
   } catch (error) {
     console.error('Error parsing analysis:', error);
-    return responseText; // Return the original text if parsing fails
+    return { personality_analysis: responseText }; // Return the original text if parsing fails
   }
 };
 
