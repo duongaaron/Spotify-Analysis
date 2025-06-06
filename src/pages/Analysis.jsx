@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Button, VStack, Spinner, Text, Alert, AlertIcon, AlertDescription } from '@chakra-ui/react';
 import Header from '../components/Header';
-import TrackList from '../components/TrackList';
-import PersonalityCard from '../components/PersonalityCard';
+import EnhancedPersonalityCard from '../components/EnhancedPersonalityCard';
+import EnhancedTrackList from '../components/EnhancedTrackList';
 import { getTopTracks, getUserProfile } from '../utils/spotify';
 import { formatTracksForPrompt, generatePersonalityAnalysis } from '../utils/analysis';
 
@@ -12,7 +12,7 @@ function Analysis() {
   
   const [tracks, setTracks] = useState([]);
   const [user, setUser] = useState(null);
-  const [analysis, setAnalysis] = useState('');
+  const [analysisData, setAnalysisData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState(null);
@@ -25,7 +25,7 @@ function Analysis() {
         // Get user profile and top tracks in parallel
         const [userProfile, userTracks] = await Promise.all([
           getUserProfile(),
-          getTopTracks(10)
+          getTopTracks(20)
         ]);
         
         // Set user and tracks
@@ -41,8 +41,10 @@ function Analysis() {
         }
         
         const tracksText = formatTracksForPrompt(userTracks);
-        const personalityAnalysis = await generatePersonalityAnalysis(tracksText);
-        setAnalysis(personalityAnalysis);
+        const response = await generatePersonalityAnalysis(tracksText);
+        console.log('Analysis response:', response);
+        
+        setAnalysisData(response);
         setAnalyzing(false);
         
       } catch (error) {
@@ -98,13 +100,15 @@ function Analysis() {
         </Alert>
       )}
       
-      <PersonalityCard 
-        analysis={analysis} 
+      <EnhancedPersonalityCard 
+        analysisData={analysisData} 
         loading={analyzing} 
         userName={user?.display_name}
       />
       
-      <TrackList tracks={tracks} />
+      <EnhancedTrackList 
+        tracks={analysisData && analysisData.tracks ? analysisData.tracks : tracks} 
+      />
       
       <Box textAlign="center" mt={8}>
         <Button

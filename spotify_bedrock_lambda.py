@@ -70,41 +70,54 @@ def analyze_personality_with_bedrock(tracks):
     
     # Format the prompt for Bedrock
     track_list = "\n".join([f"- {track['name']} by {track['artist']} (Album: {track['album']}, Popularity: {track['popularity']})" 
-                           for track in tracks[:20]])  # Limit to 20 tracks to avoid token limits
+                        for track in tracks[:20]])  # Limit to 20 tracks to avoid token limits
     
-    prompt = f"""
-    Based on the following list of a person's top Spotify tracks, analyze their personality, 
-    music taste, and provide insights about their character. Be creative, insightful, and specific.
+    prompt = f"""Based on the following list of a person's top Spotify tracks, analyze their personality, 
+music taste, and provide insights about their character. Be creative, insightful, and specific.
+
+Top Tracks:
+{track_list}
+
+Please provide:
+1. A personality profile (3-4 paragraphs)
+2. Key personality traits (5-7 bullet points)
+3. Music taste analysis
+4. A fun, creative title for their personality type"""
     
-    Top Tracks:
-    {track_list}
-    
-    Please provide:
-    1. A personality profile (3-4 paragraphs)
-    2. Key personality traits (5-7 bullet points)
-    3. Music taste analysis
-    4. A fun, creative title for their personality type
-    """
-    
-    # Call Anthropic Claude model through Bedrock
+    # Call Claude 3.7 Sonnet model with the correct format
     response = bedrock_runtime.invoke_model(
-        modelId='anthropic.claude-3-sonnet-20240229-v1:0',
+        modelId="anthropic.claude-3-sonnet-20240229-v1:0",
+        contentType="application/json",
+        accept="application/json",
         body=json.dumps({
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 1000,
+            "top_k": 250,
+            "stop_sequences": [],
+            "temperature": 0.7,
+            "top_p": 0.999,
             "messages": [
                 {
                     "role": "user",
-                    "content": prompt
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ]
                 }
             ]
         })
     )
     
     response_body = json.loads(response['body'].read().decode())
-    analysis = response_body['content'][0]['text']
     
-    return analysis
+    # Extract the analysis from the response
+    if 'content' in response_body and len(response_body['content']) > 0:
+        analysis = response_body['content'][0]['text']
+        return analysis
+    else:
+        raise Exception("Unexpected response format from Bedrock")
 
 def lambda_handler(event, context):
     try:

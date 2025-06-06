@@ -1,4 +1,5 @@
-import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
+import axios from 'axios';
+import generateAnalysisFromTracks from './mockAnalysis';
 
 // Format track data for the prompt
 export const formatTracksForPrompt = (tracks) => {
@@ -8,59 +9,106 @@ export const formatTracksForPrompt = (tracks) => {
   }).join('\n');
 };
 
-// Generate personality analysis using AWS Bedrock
-export const generatePersonalityAnalysis = async (tracksText) => {
-  const region = import.meta.env.VITE_AWS_REGION || 'us-east-1';
-  const accessKeyId = import.meta.env.VITE_AWS_ACCESS_KEY;
-  const secretAccessKey = import.meta.env.VITE_AWS_SECRET_KEY;
-  
-  if (!accessKeyId || !secretAccessKey) {
-    console.error('AWS credentials are missing');
-    throw new Error('AWS credentials are required');
-  }
-  
+// Parse the analysis response from Claude
+export const parseAnalysisResponse = (responseText) => {
   try {
-    // Initialize the Bedrock client
-    const client = new BedrockRuntimeClient({
-      region,
-      credentials: {
-        accessKeyId,
-        secretAccessKey
-      }
+    // Try to extract structured sections from the text
+    const sections = {};
+    
+    // Extract title (usually at the beginning or after a heading)
+    const titleMatch = responseText.match(/^(.+?)(?:\n|$)/) || 
+                      responseText.match(/#+\s*(.+?)(?:\n|$)/);
+    if (titleMatch) {
+      sections.title = titleMatch[1].trim();
+    }
+    
+    // Extract personality profile (usually the first few paragraphs)
+    const profileMatch = responseText.match(/(?:personality profile:?\s*\n*)([\s\S]+?)(?:\n\s*\n|\d\.|\*|\-|#)/i);
+    if (profileMatch) {
+      sections.profile = profileMatch[1].trim();
+    }
+    
+    // Extract key traits (usually bullet points)
+    const traitsMatch = responseText.match(/(?:key (?:personality )?traits:?\s*\n*)([\s\S]+?)(?:\n\s*\n|music taste|#)/i);
+    if (traitsMatch) {
+      const traitsText = traitsMatch[1];
+      sections.traits = traitsText
+        .split(/\n/)
+        .filter(line => line.trim().match(/^[\*\-•]|^\d+\./) || line.trim().length > 0)
+        .map(line => line.replace(/^[\*\-•]|\d+\./, '').trim())
+        .filter(line => line.length > 0);
+    }
+    
+    // Extract music taste analysis
+    const musicMatch = responseText.match(/(?:music taste analysis:?\s*\n*)([\s\S]+?)(?:\n\s*\n|#|$)/i);
+    if (musicMatch) {
+      sections.music_analysis = musicMatch[1].trim();
+    }
+    
+    // If we couldn't extract structured sections, return the full text
+    if (Object.keys(sections).length === 0) {
+      return responseText;
+    }
+    
+    return sections;
+  } catch (error) {
+    console.error('Error parsing analysis:', error);
+    return responseText; // Return the original text if parsing fails
+  }
+};
+
+// Generate personality analysis using your API Gateway endpoint
+export const generatePersonalityAnalysis = async (tracksText, originalTracks) => {
+  try {
+    // Get API endpoint from environment variables or use default
+    const apiEndpoint = import.meta.env.VITE_API_ENDPOINT || 'https://efhmxhffi3.execute-api.us-east-1.amazonaws.com/prod/analyze';
+    
+    console.log('Sending tracks to API Gateway:', tracksText);
+    
+    // Get access token from localStorage
+    const accessToken = localStorage.getItem('spotify_access_token');
+    
+    if (!accessToken) {
+      throw new Error('No Spotify access token found');
+    }
+    
+    // Send both the formatted tracks and the access token
+    const response = await axios.post(apiEndpoint, {
+      tracks: tracksText,
+      access_token: accessToken,
+      time_range: 'medium_term'
     });
     
-    // Using Claude model (Anthropic Claude on AWS Bedrock)
-    const modelId = "anthropic.claude-v2";
+    console.log('API Gateway response received');
     
-    // Prepare the prompt for Claude
-    const prompt = `Human: You are a music psychologist who specializes in analyzing personality traits based on music preferences. Based on this person's favorite music:\n\n${tracksText}\n\nWrite a fun 2-3 sentence analysis of their personality. Be creative and playful but keep it short. Focus on what their music taste says about them as a person.\n\nAssistant:`;
-    
-    // Prepare the request
-    const input = {
-      modelId,
-      contentType: "application/json",
-      accept: "application/json",
-      body: JSON.stringify({
-        prompt,
-        max_tokens_to_sample: 300,
-        temperature: 0.7,
-        top_p: 0.9,
-      })
-    };
-    
-    const command = new InvokeModelCommand(input);
-    const response = await client.send(command);
-    
-    // Parse the response
-    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-    
-    if (responseBody.completion) {
-      return responseBody.completion.trim();
+    // Extract the analysis from the response
+    if (response.data) {
+      if (response.data.personality_analysis) {
+        // Try to parse the analysis into structured sections
+        return parseAnalysisResponse(response.data.personality_analysis);
+      } else if (response.data.analysis) {
+        // Alternative response format
+        return parseAnalysisResponse(response.data.analysis);
+      } else {
+        console.error('Unexpected response format:', response.data);
+        console.log('Falling back to local analysis');
+        
+        // Fallback to local analysis if API fails
+        return generateAnalysisFromTracks(originalTracks);
+      }
     } else {
-      throw new Error('Invalid response format from AWS Bedrock');
+      throw new Error('Empty response from API');
     }
   } catch (error) {
-    console.error('Error generating analysis with AWS Bedrock:', error);
-    throw error;
+    console.error('Error generating analysis:', error);
+    
+    if (error.response) {
+      console.error('API error details:', error.response.data);
+    }
+    
+    console.log('Falling back to local analysis');
+    
+    // Fallback to local analysis if API fails
+    return generateAnalysisFromTracks(originalTracks);
   }
 };

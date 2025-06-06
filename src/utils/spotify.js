@@ -9,6 +9,9 @@ const CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
 const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI;
 const SCOPES = ['user-top-read', 'user-library-read'];
 
+// Log the redirect URI to verify it's correct
+console.log('Using Redirect URI:', REDIRECT_URI);
+
 // Generate random string for state parameter
 const generateRandomString = (length) => {
   const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -34,7 +37,9 @@ export const getLoginUrl = () => {
     show_dialog: true
   });
   
-  return `${authUrl}?${params.toString()}`;
+  const url = `${authUrl}?${params.toString()}`;
+  console.log('Generated auth URL:', url);
+  return url;
 };
 
 // Exchange authorization code for access token
