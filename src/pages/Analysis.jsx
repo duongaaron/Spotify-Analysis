@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, VStack, Spinner, Text, Alert, AlertIcon, AlertDescription, Code } from '@chakra-ui/react';
+import { Box, Button, VStack, Spinner, Text, Alert, AlertIcon, AlertDescription } from '@chakra-ui/react';
 import Header from '../components/Header';
 import TrackList from '../components/TrackList';
 import PersonalityCard from '../components/PersonalityCard';
@@ -16,7 +16,6 @@ function Analysis() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState(null);
-  const [debugInfo, setDebugInfo] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,14 +41,6 @@ function Analysis() {
         }
         
         const tracksText = formatTracksForPrompt(userTracks);
-        
-        setDebugInfo({
-          tracksCount: userTracks.length,
-          apiKeyExists: !!import.meta.env.VITE_OPENAI_API_KEY,
-          apiKeyFirstChars: import.meta.env.VITE_OPENAI_API_KEY ? 
-            import.meta.env.VITE_OPENAI_API_KEY.substring(0, 5) + '...' : 'none'
-        });
-        
         const personalityAnalysis = await generatePersonalityAnalysis(tracksText);
         setAnalysis(personalityAnalysis);
         setAnalyzing(false);
@@ -100,14 +91,6 @@ function Analysis() {
           <AlertIcon />
           <VStack align="start" spacing={2} width="100%">
             <AlertDescription>{error}</AlertDescription>
-            {debugInfo && (
-              <Box mt={2} p={2} bg="gray.100" borderRadius="md" width="100%" fontSize="xs">
-                <Text fontWeight="bold">Debug Info:</Text>
-                <Code display="block" whiteSpace="pre-wrap" p={2} mt={1}>
-                  {JSON.stringify(debugInfo, null, 2)}
-                </Code>
-              </Box>
-            )}
             <Button size="sm" onClick={handleRetry} mt={2}>
               Retry
             </Button>

@@ -1,5 +1,4 @@
 // Personality analyses based on different music genres and styles
-// Used as a fallback when OpenAI API is unavailable
 
 const analyses = {
   // For tracks with SZA, Drake, R&B artists

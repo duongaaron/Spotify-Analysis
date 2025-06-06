@@ -1,6 +1,6 @@
-import axios from 'axios';
+import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
 
-// Format track data for the AI prompt
+// Format track data for the prompt
 export const formatTracksForPrompt = (tracks) => {
   return tracks.map(track => {
     const artists = track.artists.map(artist => artist.name).join(', ');
@@ -8,82 +8,59 @@ export const formatTracksForPrompt = (tracks) => {
   }).join('\n');
 };
 
-// Generate personality analysis using OpenAI API
+// Generate personality analysis using AWS Bedrock
 export const generatePersonalityAnalysis = async (tracksText) => {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  const region = import.meta.env.VITE_AWS_REGION || 'us-east-1';
+  const accessKeyId = import.meta.env.VITE_AWS_ACCESS_KEY;
+  const secretAccessKey = import.meta.env.VITE_AWS_SECRET_KEY;
   
-  if (!apiKey) {
-    console.error('OpenAI API key is missing');
-    throw new Error('OpenAI API key is required');
+  if (!accessKeyId || !secretAccessKey) {
+    console.error('AWS credentials are missing');
+    throw new Error('AWS credentials are required');
   }
   
-  const payload = {
-    model: 'gpt-3.5-turbo',
-    messages: [
-      {
-        role: 'system',
-        content: 'You are a music psychologist who specializes in analyzing personality traits based on music preferences. Keep your analysis fun, creative, and positive.'
-      },
-      {
-        role: 'user',
-        content: `Based on this person's favorite music:\n${tracksText}\n\nWrite a fun 2-3 sentence analysis of their personality. Be creative and playful but keep it short. Focus on what their music taste says about them as a person.`
+  try {
+    // Initialize the Bedrock client
+    const client = new BedrockRuntimeClient({
+      region,
+      credentials: {
+        accessKeyId,
+        secretAccessKey
       }
-    ],
-    max_tokens: 150,
-    temperature: 0.7
-  };
-  
-  // Retry configuration
-  const maxRetries = 3;
-  const baseDelay = 2000; // 2 seconds
-  let retries = 0;
-  
-  while (true) {
-    try {
-      console.log(`API request attempt ${retries + 1}/${maxRetries + 1}`);
-      
-      const response = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
-        payload,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          }
-        }
-      );
-      
-      console.log('OpenAI response status:', response.status);
-      
-      if (response.data?.choices?.[0]?.message?.content) {
-        const content = response.data.choices[0].message.content.trim();
-        console.log('Analysis generated successfully');
-        return content;
-      } else {
-        throw new Error('Invalid response format from OpenAI');
-      }
-    } catch (error) {
-      console.error(`Attempt ${retries + 1} failed:`, error.message);
-      
-      // Check if it's a rate limit error (429)
-      if (error.response?.status === 429) {
-        if (retries < maxRetries) {
-          // Calculate delay with exponential backoff
-          const delay = baseDelay * Math.pow(2, retries);
-          console.log(`Rate limited. Retrying in ${delay}ms (attempt ${retries + 1}/${maxRetries})`);
-          
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, delay));
-          retries++;
-          continue;
-        } else {
-          console.error('Max retries reached for rate limit');
-          throw new Error('OpenAI API rate limit exceeded. Please try again later.');
-        }
-      }
-      
-      // For other errors, just throw
-      throw error;
+    });
+    
+    // Using Claude model (Anthropic Claude on AWS Bedrock)
+    const modelId = "anthropic.claude-v2";
+    
+    // Prepare the prompt for Claude
+    const prompt = `Human: You are a music psychologist who specializes in analyzing personality traits based on music preferences. Based on this person's favorite music:\n\n${tracksText}\n\nWrite a fun 2-3 sentence analysis of their personality. Be creative and playful but keep it short. Focus on what their music taste says about them as a person.\n\nAssistant:`;
+    
+    // Prepare the request
+    const input = {
+      modelId,
+      contentType: "application/json",
+      accept: "application/json",
+      body: JSON.stringify({
+        prompt,
+        max_tokens_to_sample: 300,
+        temperature: 0.7,
+        top_p: 0.9,
+      })
+    };
+    
+    const command = new InvokeModelCommand(input);
+    const response = await client.send(command);
+    
+    // Parse the response
+    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+    
+    if (responseBody.completion) {
+      return responseBody.completion.trim();
+    } else {
+      throw new Error('Invalid response format from AWS Bedrock');
     }
+  } catch (error) {
+    console.error('Error generating analysis with AWS Bedrock:', error);
+    throw error;
   }
 };
