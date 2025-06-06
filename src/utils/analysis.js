@@ -10,10 +10,10 @@ export const formatTracksForPrompt = (tracks) => {
 
 // Generate personality analysis using OpenAI API
 export const generatePersonalityAnalysis = async (tracksText) => {
-  const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
   
   // If no API key is provided, use mock data
-  if (!OPENAI_API_KEY || OPENAI_API_KEY === 'your_openai_api_key_here') {
+  if (!apiKey || apiKey === 'your_openai_api_key_here') {
     console.warn('No OpenAI API key provided, using mock analysis');
     return generateMockAnalysis();
   }
@@ -39,7 +39,7 @@ export const generatePersonalityAnalysis = async (tracksText) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`
+          'Authorization': `Bearer ${apiKey}`
         }
       }
     );
