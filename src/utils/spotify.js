@@ -2,8 +2,8 @@ import SpotifyWebApi from 'spotify-web-api-js';
 
 const spotifyApi = new SpotifyWebApi();
 
-// Spotify authentication parameters
-const CLIENT_ID = '6ced8ce22bb248bf8a2c852d01cce454'; // Hardcoded client ID
+// Spotify authentication parameters - hardcoded for reliability
+const CLIENT_ID = '6ced8ce22bb248bf8a2c852d01cce454';
 const REDIRECT_URI = 'http://127.0.0.1:5173/callback';
 const SCOPES = ['user-top-read', 'user-library-read'];
 
@@ -17,54 +17,26 @@ const generateRandomString = (length) => {
   return text;
 };
 
-// Get login URL for Spotify authentication
+// Get login URL for Spotify authentication - try both flows
+// In spotify.js
 export const getLoginUrl = () => {
   const state = generateRandomString(16);
   localStorage.setItem('spotify_auth_state', state);
   
-  // Use PKCE for added security (Proof Key for Code Exchange)
-  const codeVerifier = generateRandomString(64);
-  localStorage.setItem('code_verifier', codeVerifier);
-  
-  console.log('Using CLIENT_ID:', CLIENT_ID);
-  console.log('Using redirect URI:', REDIRECT_URI);
-  
   const authUrl = 'https://accounts.spotify.com/authorize';
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
-    response_type: 'code',
+    response_type: 'code',  // Use authorization code flow
     redirect_uri: REDIRECT_URI,
     state: state,
     scope: SCOPES.join(' '),
     show_dialog: true
   });
   
+  console.log('Auth URL:', `${authUrl}?${params.toString()}`);
   return `${authUrl}?${params.toString()}`;
 };
 
-// Parse the code from URL query parameters
-export const getCodeFromUrl = () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const code = urlParams.get('code');
-  const state = urlParams.get('state');
-  const error = urlParams.get('error');
-  
-  // Log any errors
-  if (error) {
-    console.error('Authentication error:', error);
-    return null;
-  }
-  
-  // Verify state matches to prevent CSRF attacks
-  const storedState = localStorage.getItem('spotify_auth_state');
-  
-  if (code && state === storedState) {
-    localStorage.removeItem('spotify_auth_state');
-    return code;
-  }
-  
-  return null;
-};
 
 // Set the access token for Spotify API calls
 export const setAccessToken = (token) => {
