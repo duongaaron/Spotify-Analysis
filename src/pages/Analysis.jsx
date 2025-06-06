@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, VStack, Spinner, Text } from '@chakra-ui/react';
+import { Box, Button, VStack, Spinner, Text, Alert, AlertIcon, AlertDescription } from '@chakra-ui/react';
 import Header from '../components/Header';
 import TrackList from '../components/TrackList';
 import PersonalityCard from '../components/PersonalityCard';
@@ -17,6 +17,7 @@ function Analysis() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState(null);
+  const [usingMockData, setUsingMockData] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -24,44 +25,53 @@ function Analysis() {
         setLoading(true);
         
         // Check if we're using mock data
-        const usingMockData = localStorage.getItem('using_mock_data') === 'true';
+        const useMock = localStorage.getItem('using_mock_data') === 'true';
+        setUsingMockData(useMock);
         
-        if (usingMockData) {
+        let userProfile;
+        let userTracks;
+        
+        if (useMock) {
           // Use mock data
-          setUser(mockUser);
-          setTracks(mockTracks);
+          userProfile = mockUser;
+          userTracks = mockTracks;
         } else {
-          // Try to use real Spotify data
+          // Use real Spotify data
           try {
             // Get user profile and top tracks in parallel
-            const [userProfile, topTracks] = await Promise.all([
+            const results = await Promise.all([
               getUserProfile(),
               getTopTracks(10)
             ]);
             
-            setUser(userProfile);
-            setTracks(topTracks);
+            userProfile = results[0];
+            userTracks = results[1];
           } catch (spotifyError) {
             console.error('Error fetching Spotify data:', spotifyError);
             setError('Failed to fetch your Spotify data. Using demo data instead.');
             
             // Fall back to mock data
-            setUser(mockUser);
-            setTracks(mockTracks);
+            userProfile = mockUser;
+            userTracks = mockTracks;
+            setUsingMockData(true);
           }
         }
         
-        // Generate analysis
+        // Set user and tracks
+        setUser(userProfile);
+        setTracks(userTracks);
+        setLoading(false);
+        
+        // Generate analysis based on the tracks
         setAnalyzing(true);
-        const tracksToAnalyze = usingMockData ? mockTracks : tracks;
-        const tracksText = formatTracksForPrompt(tracksToAnalyze);
+        const tracksText = formatTracksForPrompt(userTracks);
         const personalityAnalysis = await generatePersonalityAnalysis(tracksText);
         setAnalysis(personalityAnalysis);
+        setAnalyzing(false);
         
       } catch (error) {
         console.error('Error:', error);
         setError('Something went wrong. Please try again.');
-      } finally {
         setLoading(false);
         setAnalyzing(false);
       }
@@ -69,6 +79,17 @@ function Analysis() {
 
     fetchData();
   }, []);
+
+  const handleLogout = () => {
+    // Clear Spotify tokens
+    localStorage.removeItem('spotify_access_token');
+    localStorage.removeItem('spotify_refresh_token');
+    localStorage.removeItem('spotify_token_expiry');
+    localStorage.removeItem('using_mock_data');
+    
+    // Navigate back to login
+    navigate('/');
+  };
 
   if (loading) {
     return (
@@ -86,9 +107,19 @@ function Analysis() {
       <Header />
       
       {error && (
-        <Box bg="red.50" p={4} borderRadius="md" mb={4}>
-          <Text color="red.500">{error}</Text>
-        </Box>
+        <Alert status="error" borderRadius="md" mb={4}>
+          <AlertIcon />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      
+      {usingMockData && !error && (
+        <Alert status="info" borderRadius="md" mb={4}>
+          <AlertIcon />
+          <AlertDescription>
+            Using demo data. To see your real Spotify data, please log in again.
+          </AlertDescription>
+        </Alert>
       )}
       
       <PersonalityCard 
@@ -101,11 +132,11 @@ function Analysis() {
       
       <Box textAlign="center" mt={8}>
         <Button
-          onClick={() => navigate('/')}
+          onClick={handleLogout}
           variant="outline"
           colorScheme="gray"
         >
-          Start Over
+          Logout
         </Button>
       </Box>
     </Box>

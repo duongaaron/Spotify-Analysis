@@ -32,6 +32,9 @@ function Callback() {
         // Exchange code for token
         await exchangeCodeForToken(code);
         
+        // Make sure we're not using mock data
+        localStorage.removeItem('using_mock_data');
+        
         // Navigate to analysis page
         navigate('/analysis');
       } catch (error) {
