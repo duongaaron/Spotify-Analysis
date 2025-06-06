@@ -12,55 +12,78 @@ export const formatTracksForPrompt = (tracks) => {
 export const generatePersonalityAnalysis = async (tracksText) => {
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
   
-  // If no API key is provided, use mock data
-  if (!apiKey || apiKey === 'your_openai_api_key_here') {
-    console.warn('No OpenAI API key provided, using mock analysis');
-    return generateMockAnalysis();
+  if (!apiKey) {
+    console.error('OpenAI API key is missing');
+    throw new Error('OpenAI API key is required');
   }
   
-  try {
-    const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
+  const payload = {
+    model: 'gpt-3.5-turbo',
+    messages: [
       {
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a music psychologist who specializes in analyzing personality traits based on music preferences. Keep your analysis fun, creative, and positive.'
-          },
-          {
-            role: 'user',
-            content: `Based on this person's favorite music:\n${tracksText}\n\nWrite a fun 2-3 sentence analysis of their personality. Be creative and playful but keep it short. Focus on what their music taste says about them as a person.`
-          }
-        ],
-        max_tokens: 150,
-        temperature: 0.7
+        role: 'system',
+        content: 'You are a music psychologist who specializes in analyzing personality traits based on music preferences. Keep your analysis fun, creative, and positive.'
       },
       {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+        role: 'user',
+        content: `Based on this person's favorite music:\n${tracksText}\n\nWrite a fun 2-3 sentence analysis of their personality. Be creative and playful but keep it short. Focus on what their music taste says about them as a person.`
+      }
+    ],
+    max_tokens: 150,
+    temperature: 0.7
+  };
+  
+  // Retry configuration
+  const maxRetries = 3;
+  const baseDelay = 2000; // 2 seconds
+  let retries = 0;
+  
+  while (true) {
+    try {
+      console.log(`API request attempt ${retries + 1}/${maxRetries + 1}`);
+      
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          }
+        }
+      );
+      
+      console.log('OpenAI response status:', response.status);
+      
+      if (response.data?.choices?.[0]?.message?.content) {
+        const content = response.data.choices[0].message.content.trim();
+        console.log('Analysis generated successfully');
+        return content;
+      } else {
+        throw new Error('Invalid response format from OpenAI');
+      }
+    } catch (error) {
+      console.error(`Attempt ${retries + 1} failed:`, error.message);
+      
+      // Check if it's a rate limit error (429)
+      if (error.response?.status === 429) {
+        if (retries < maxRetries) {
+          // Calculate delay with exponential backoff
+          const delay = baseDelay * Math.pow(2, retries);
+          console.log(`Rate limited. Retrying in ${delay}ms (attempt ${retries + 1}/${maxRetries})`);
+          
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, delay));
+          retries++;
+          continue;
+        } else {
+          console.error('Max retries reached for rate limit');
+          throw new Error('OpenAI API rate limit exceeded. Please try again later.');
         }
       }
-    );
-    
-    return response.data.choices[0].message.content.trim();
-  } catch (error) {
-    console.error('Error generating analysis with OpenAI:', error);
-    // Fall back to mock analysis if API call fails
-    return generateMockAnalysis();
+      
+      // For other errors, just throw
+      throw error;
+    }
   }
-};
-
-// Generate a mock analysis as fallback
-const generateMockAnalysis = () => {
-  const mockAnalyses = [
-    "You're a passionate soul with eclectic taste. Your music choices reveal someone who isn't afraid to feel deeply and embrace life's full emotional spectrum.",
-    "Your playlist suggests you're a thoughtful dreamer with a nostalgic streak. You appreciate artistry and likely have creative talents of your own.",
-    "You're definitely the life of the party! Your upbeat music choices reveal someone who brings energy and positivity to any room they enter.",
-    "Your music taste shows you're a deep thinker who values authenticity. You likely have strong opinions and appreciate meaningful conversations.",
-    "You have the soul of an explorer. Your diverse music choices suggest someone who's curious about the world and open to new experiences."
-  ];
-  
-  return mockAnalyses[Math.floor(Math.random() * mockAnalyses.length)];
 };

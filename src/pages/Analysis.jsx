@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, VStack, Spinner, Text, Alert, AlertIcon, AlertDescription } from '@chakra-ui/react';
+import { Box, Button, VStack, Spinner, Text, Alert, AlertIcon, AlertDescription, Code } from '@chakra-ui/react';
 import Header from '../components/Header';
 import TrackList from '../components/TrackList';
 import PersonalityCard from '../components/PersonalityCard';
 import { getTopTracks, getUserProfile } from '../utils/spotify';
 import { formatTracksForPrompt, generatePersonalityAnalysis } from '../utils/analysis';
-import { mockUser, mockTracks } from '../utils/mockData';
 
 function Analysis() {
   const navigate = useNavigate();
@@ -17,45 +16,18 @@ function Analysis() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState(null);
-  const [usingMockData, setUsingMockData] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         
-        // Check if we're using mock data
-        const useMock = localStorage.getItem('using_mock_data') === 'true';
-        setUsingMockData(useMock);
-        
-        let userProfile;
-        let userTracks;
-        
-        if (useMock) {
-          // Use mock data
-          userProfile = mockUser;
-          userTracks = mockTracks;
-        } else {
-          // Use real Spotify data
-          try {
-            // Get user profile and top tracks in parallel
-            const results = await Promise.all([
-              getUserProfile(),
-              getTopTracks(10)
-            ]);
-            
-            userProfile = results[0];
-            userTracks = results[1];
-          } catch (spotifyError) {
-            console.error('Error fetching Spotify data:', spotifyError);
-            setError('Failed to fetch your Spotify data. Using demo data instead.');
-            
-            // Fall back to mock data
-            userProfile = mockUser;
-            userTracks = mockTracks;
-            setUsingMockData(true);
-          }
-        }
+        // Get user profile and top tracks in parallel
+        const [userProfile, userTracks] = await Promise.all([
+          getUserProfile(),
+          getTopTracks(10)
+        ]);
         
         // Set user and tracks
         setUser(userProfile);
@@ -64,14 +36,27 @@ function Analysis() {
         
         // Generate analysis based on the tracks
         setAnalyzing(true);
+        
+        if (!userTracks || userTracks.length === 0) {
+          throw new Error('No tracks found in your Spotify account');
+        }
+        
         const tracksText = formatTracksForPrompt(userTracks);
+        
+        setDebugInfo({
+          tracksCount: userTracks.length,
+          apiKeyExists: !!import.meta.env.VITE_OPENAI_API_KEY,
+          apiKeyFirstChars: import.meta.env.VITE_OPENAI_API_KEY ? 
+            import.meta.env.VITE_OPENAI_API_KEY.substring(0, 5) + '...' : 'none'
+        });
+        
         const personalityAnalysis = await generatePersonalityAnalysis(tracksText);
         setAnalysis(personalityAnalysis);
         setAnalyzing(false);
         
       } catch (error) {
         console.error('Error:', error);
-        setError('Something went wrong. Please try again.');
+        setError(`Error: ${error.message || 'Something went wrong'}`);
         setLoading(false);
         setAnalyzing(false);
       }
@@ -85,10 +70,14 @@ function Analysis() {
     localStorage.removeItem('spotify_access_token');
     localStorage.removeItem('spotify_refresh_token');
     localStorage.removeItem('spotify_token_expiry');
-    localStorage.removeItem('using_mock_data');
     
     // Navigate back to login
     navigate('/');
+  };
+
+  const handleRetry = () => {
+    // Reload the page to retry
+    window.location.reload();
   };
 
   if (loading) {
@@ -109,16 +98,20 @@ function Analysis() {
       {error && (
         <Alert status="error" borderRadius="md" mb={4}>
           <AlertIcon />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      
-      {usingMockData && !error && (
-        <Alert status="info" borderRadius="md" mb={4}>
-          <AlertIcon />
-          <AlertDescription>
-            Using demo data. To see your real Spotify data, please log in again.
-          </AlertDescription>
+          <VStack align="start" spacing={2} width="100%">
+            <AlertDescription>{error}</AlertDescription>
+            {debugInfo && (
+              <Box mt={2} p={2} bg="gray.100" borderRadius="md" width="100%" fontSize="xs">
+                <Text fontWeight="bold">Debug Info:</Text>
+                <Code display="block" whiteSpace="pre-wrap" p={2} mt={1}>
+                  {JSON.stringify(debugInfo, null, 2)}
+                </Code>
+              </Box>
+            )}
+            <Button size="sm" onClick={handleRetry} mt={2}>
+              Retry
+            </Button>
+          </VStack>
         </Alert>
       )}
       
