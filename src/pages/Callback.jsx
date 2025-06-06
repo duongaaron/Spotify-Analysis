@@ -1,80 +1,44 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Spinner, Text, VStack, Button, Code } from '@chakra-ui/react';
-import { useMockData } from '../utils/spotify';
+import { Box, Spinner, Text, VStack, Button } from '@chakra-ui/react';
+import { exchangeCodeForToken, useMockData } from '../utils/spotify';
 
 function Callback() {
   const navigate = useNavigate();
   const [error, setError] = useState(null);
-  const [authCode, setAuthCode] = useState(null);
-  const [debugInfo, setDebugInfo] = useState({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const handleCallback = async () => {
-      // Collect debug information
-      const debug = {
-        fullUrl: window.location.href,
-        search: window.location.search,
-        hash: window.location.hash,
-        urlParams: Object.fromEntries(new URLSearchParams(window.location.search).entries()),
-        hashParams: Object.fromEntries(new URLSearchParams(window.location.hash.substring(1)).entries())
-      };
-      
-      setDebugInfo(debug);
-      console.log('Debug info:', debug);
-      
-      // Check for error in URL parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlError = urlParams.get('error');
-      
-      if (urlError) {
-        console.error('URL contains error:', urlError);
-        setError(`Authentication error: ${urlError}`);
-        return;
-      }
-      
-      // Check for error in hash fragment
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const hashError = hashParams.get('error');
-      
-      if (hashError) {
-        console.error('Hash contains error:', hashError);
-        setError(`Authentication error: ${hashError}`);
-        return;
-      }
-      
-      // Try to get authorization code from URL parameters
-      const code = urlParams.get('code');
-      
-      // Try to get access token from hash fragment (for implicit flow)
-      const token = hashParams.get('access_token');
-      
-      if (code) {
-        setAuthCode(code);
-        console.log('Got authorization code:', code);
+      try {
+        // Check for error in URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlError = urlParams.get('error');
         
-        // In a real app, you would exchange this code for a token
-        // Since we can't do that securely in the frontend, we'll use mock data
-        useMockData();
+        if (urlError) {
+          console.error('URL contains error:', urlError);
+          setError(`Authentication error: ${urlError}`);
+          return;
+        }
         
-        // Wait a moment to show the code before redirecting
-        setTimeout(() => {
-          navigate('/analysis');
-        }, 5000);
-      } else if (token) {
-        console.log('Got access token directly:', token);
-        setAuthCode('Using implicit flow - token received directly');
+        // Get authorization code from URL parameters
+        const code = urlParams.get('code');
         
-        // In a real app, you would use this token directly
-        // For demo purposes, we'll use mock data
-        useMockData();
+        if (!code) {
+          setError('No authorization code found. Try the demo version instead.');
+          return;
+        }
         
-        // Wait a moment before redirecting
-        setTimeout(() => {
-          navigate('/analysis');
-        }, 5000);
-      } else {
-        setError('No authorization code or token found. Try the demo version instead.');
+        // Exchange code for token
+        await exchangeCodeForToken(code);
+        
+        // Navigate to analysis page
+        navigate('/analysis');
+      } catch (error) {
+        console.error('Error during authentication:', error);
+        setError(`Authentication error: ${error.message}. Try the demo version instead.`);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -89,38 +53,22 @@ function Callback() {
   return (
     <Box height="100vh" display="flex" alignItems="center" justifyContent="center">
       <VStack spacing={4} maxW="600px" p={6}>
-        {!error && !authCode && <Spinner size="xl" color="spotify.green" thickness="4px" />}
+        {loading && <Spinner size="xl" color="spotify.green" thickness="4px" />}
         
         {error ? (
           <>
             <Text color="red.500">{error}</Text>
-            <Text fontSize="sm">Debug information:</Text>
-            <Code p={2} borderRadius="md" maxW="100%" overflow="auto" fontSize="xs">
-              {JSON.stringify(debugInfo, null, 2)}
-            </Code>
+            <Button 
+              onClick={handleUseMockData}
+              mt={4}
+              colorScheme="gray"
+            >
+              Use Demo Version Instead
+            </Button>
           </>
-        ) : authCode ? (
-          <>
-            <Text color="green.500" fontWeight="bold">Authentication successful!</Text>
-            <Text>Authentication data received:</Text>
-            <Code p={2} borderRadius="md" maxW="100%" overflow="auto">
-              {authCode}
-            </Code>
-            <Text>
-              Redirecting to analysis page in 5 seconds...
-            </Text>
-          </>
-        ) : (
+        ) : loading ? (
           <Text>Connecting to Spotify...</Text>
-        )}
-        
-        <Button 
-          onClick={handleUseMockData}
-          mt={4}
-          colorScheme="gray"
-        >
-          {authCode ? "Continue to Analysis" : "Use Demo Version Instead"}
-        </Button>
+        ) : null}
       </VStack>
     </Box>
   );

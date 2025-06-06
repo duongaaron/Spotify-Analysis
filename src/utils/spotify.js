@@ -1,9 +1,11 @@
 import SpotifyWebApi from 'spotify-web-api-js';
+import axios from 'axios';
 
 const spotifyApi = new SpotifyWebApi();
 
 // Spotify authentication parameters - hardcoded for reliability
 const CLIENT_ID = '6ced8ce22bb248bf8a2c852d01cce454';
+const CLIENT_SECRET = '37a7301e731f4dfc8bb3448908090c20';
 const REDIRECT_URI = 'http://127.0.0.1:5173/callback';
 const SCOPES = ['user-top-read', 'user-library-read'];
 
@@ -17,8 +19,7 @@ const generateRandomString = (length) => {
   return text;
 };
 
-// Get login URL for Spotify authentication - try both flows
-// In spotify.js
+// Get login URL for Spotify authentication
 export const getLoginUrl = () => {
   const state = generateRandomString(16);
   localStorage.setItem('spotify_auth_state', state);
@@ -26,17 +27,53 @@ export const getLoginUrl = () => {
   const authUrl = 'https://accounts.spotify.com/authorize';
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
-    response_type: 'code',  // Use authorization code flow
+    response_type: 'code',
     redirect_uri: REDIRECT_URI,
     state: state,
     scope: SCOPES.join(' '),
     show_dialog: true
   });
   
-  console.log('Auth URL:', `${authUrl}?${params.toString()}`);
   return `${authUrl}?${params.toString()}`;
 };
 
+// Exchange authorization code for access token
+export const exchangeCodeForToken = async (code) => {
+  try {
+    // NOTE: In a production app, this should be done server-side
+    // We're doing it client-side for demo purposes only
+    
+    const tokenUrl = 'https://accounts.spotify.com/api/token';
+    const payload = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: code,
+      redirect_uri: REDIRECT_URI,
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET
+    });
+    
+    const response = await axios.post(tokenUrl, payload, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    
+    const { access_token, refresh_token, expires_in } = response.data;
+    
+    // Store tokens
+    localStorage.setItem('spotify_access_token', access_token);
+    localStorage.setItem('spotify_refresh_token', refresh_token);
+    localStorage.setItem('spotify_token_expiry', Date.now() + expires_in * 1000);
+    
+    // Set the access token for the Spotify Web API
+    spotifyApi.setAccessToken(access_token);
+    
+    return access_token;
+  } catch (error) {
+    console.error('Error exchanging code for token:', error);
+    throw error;
+  }
+};
 
 // Set the access token for Spotify API calls
 export const setAccessToken = (token) => {
